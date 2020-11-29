@@ -8,6 +8,7 @@ const { graphqlHTTP } = require('express-graphql');
 
 const graphqlSchema = require('./graphql/schema');
 const graphqlResolver = require('./graphql/resolvers');
+const dbConfig = require('../db/config');
 
 const app = express();
 
@@ -49,6 +50,9 @@ app.use((req, res, next) => {
 		'Access-Control-Allow-Headers',
 		'Content-Type, Authorization'
 	);
+	if (req.method == 'OPTIONS') {
+		return res.sendStatus(200);
+	}
 	next();
 });
 
@@ -57,6 +61,20 @@ app.use(
 	graphqlHTTP({
 		schema: graphqlSchema,
 		rootValue: graphqlResolver,
+		graphiql: true,
+		formatError(err) {
+			if (!err.originalError) {
+				return err;
+			}
+			const data = err.originalError.data;
+			const message = err.message || 'An error occurred';
+			const code = err.originalError.code || 500;
+			return {
+				message: message,
+				status: code,
+				data: data,
+			};
+		},
 	})
 );
 
@@ -68,15 +86,11 @@ app.use((error, req, res, next) => {
 	res.status(status).json({ message: message, data: data });
 });
 
-
 mongoose
-	.connect(
-		'mongodb+srv://b3_user:@dmA87782930@cluster0.ntlsu.mongodb.net/messages?retryWrites=true',
-		{
-			useNewUrlParser: true,
-			useUnifiedTopology: true,
-		}
-	)
+	.connect(dbConfig.strConn, {
+		useNewUrlParser: true,
+		useUnifiedTopology: true,
+	})
 	.then(result => {
 		app.listen(8080);
 	})
