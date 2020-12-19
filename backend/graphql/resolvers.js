@@ -1,7 +1,9 @@
 const bcrypt = require('bcryptjs');
 const validator = require('validator');
+const jwt = require('jsonwebtoken');
 
 const User = require('../models/user');
+const jwtConfig = require('../../config/jwt');
 
 module.exports = {
 	createUser: async function ({ userInput }, req) {
@@ -17,7 +19,7 @@ module.exports = {
 		}
 		console.log(errors);
 		if (errors.length > 0) {
-			const error = new Erroror('Invalid input.');
+			const error = new Error('Invalid input.');
 			error.data = errors;
 			error.code = 422;
 			throw error;
@@ -36,11 +38,28 @@ module.exports = {
 		const createdUser = await user.save();
 		return { ...createdUser._doc, _id: createdUser._id.toString() };
 	},
+	login: async function ({ email, password }) {
+		const user = await User.findOne({ email });
+		if (!user) {
+			const error = new Error('User or Password is incorrect 1.');
+			error.code = 401;
+			throw error;
+		}
+		const isEqual = await bcrypt.compare(password, user.password);
+		if (!isEqual) {
+			const error = new Error('User or Password is incorrect 2.');
+			error.code = 401;
+			throw error;
+		}
 
-	// hello() {
-	// 	return {
-	// 		text: 'Hello World!',
-	// 		views: 1234,
-	// 	};
-	// },
+		const token = jwt.sign(
+			{
+				userId: user._id.toString(),
+				email: user.email,
+			},
+			jwtConfig.secret,
+			{ expiresIn: '1h' }
+		);
+		return { token, userId: user._id.toString() };
+	},
 };
